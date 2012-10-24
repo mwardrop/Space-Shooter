@@ -1,0 +1,261 @@
+body {
+	font-family: Tahoma, Helvetica, Arial;
+	font-size: 1em;
+	background-color: #000;
+	margin: 0px;
+	padding: 0px;
+	overflow: hidden;
+	color: grey;
+}
+
+#canvas {
+	display: none;
+}
+
+#chat {
+	position: absolute;
+	width: 500px;
+	height: 150px;
+	display: none;
+	font-size: 0.6em;
+}
+
+#inventory {
+	position: absolute;
+	width: 282px;
+	height: 260px;
+	display: none;
+	font-size: 0.6em;
+}
+
+#chatTabs {
+	height: 100%;
+}
+
+.chatWindow {
+	overflow-y: auto;
+	border-bottom: 10px solid red;
+}
+
+#login {
+	height: 200px;
+	width: 500px;
+	margin: auto;
+	/*border: 10px solid grey;*/
+	position: relative;
+	top: 250px;
+	text-align: center;
+	font-size: 0.6em;
+}
+
+input[name="chatInput"] {
+	width: 99%;
+	height: 18px;
+	background-color: #000;
+	color: #ccc;
+	border: 0px;
+	border: 1px solid #222;
+}
+
+#chatInput {
+	text-align: center;
+}
+.chat_time {
+	color: #999;
+}
+
+.chat_source {
+	color: #999;
+	font-weight: bold;
+}
+
+.chat_msg {
+	color: #666;
+}
+
+#interface {
+	width: 488px;
+	height: 146px;
+	position: absolute;
+	display: none;
+
+
+	background-image:url('images/interface.png');
+}
+
+#int_bottom {
+	width: 478px;
+	margin: auto;
+	margin-top: 1px;
+	height: 44px;
+	}
+	
+	#int_top{
+	height: 90px;
+	width: 440px;
+	margin: auto;
+	margin-top: 6px;
+	position: relative;
+	left: 3px;
+	}
+
+	.int_slot{
+	height: 35px;
+	width: 35px;
+	margin-top: 45px;
+	position: relative;
+	}
+	
+		.inv_slot{
+	height: 35px;
+	width: 35px;
+		position: relative;
+	bottom: 3px;
+
+	}
+		#shield{
+	height: 35px; width: 35px;
+	}
+			#radar{
+	height: 35px; width: 35px;
+	margin-left: 5px;
+
+	}
+	#shield_energy{
+	height: 38px; width: 145px;
+	margin-left: 6px;
+	position: relative;
+	bottom: 0px;
+	background-image: url('images/shieldbar.png');
+	}
+		#life_energy{
+	height: 38px; width: 145px;
+
+	position: relative;
+	bottom: 0px;
+	background-image: url('images/healthbar.png');
+	float: right;
+	}
+	#minimap{
+		height: 88px;
+		width: 158px;
+		position: relative;
+		bottom: 3px;
+		margin-left: 3px;
+	}
+	
+	#inv_con{
+		width:283px;
+		height:192px;
+		background-image: url('images/inventory.png');
+		background-repeat:no-repeat;
+		position: relative;
+		left: -12px;
+		bottom: 0px;
+		padding: 3px;
+	}
+	
+	.inv_icon {
+		height: 38px;
+		width: 38px;
+		z-index: 1000;
+		position: absolute;
+		cursor:pointer;
+	}
+	
+	#inv_header_table {
+		position: relative;
+		bottom: 0px;
+		right: 0px;
+	}
+	
+	#inv_slots {
+		width:279px;
+		height:188px;
+		
+	}
+
+	
+	#game_selector_table {
+		width: 250px;
+		margin: auto;
+	}
+	
+	.game_selector_item {
+		height: 90px;
+		padding: 5px;
+		margin: 5px;
+		width: 220px;
+		border: 1px solid #616161;
+		border-radius: 4px;
+		text-align: left;
+	}
+	
+	#gameOver {
+		display: none;
+			width: 500px;
+	margin: auto;
+	/*border: 10px solid grey;*/
+	position: relative;
+	top: 250px;
+	text-align: center;
+	font-size: 0.6em;
+	}
+	
+	.radarBlip {
+		background-color: #c7e9ff;
+		height: 2px;
+		width: 2px;
+		position: absolute;
+	}
+	
+	#toolTip {
+		max-width: 200px;
+		position: absolute;
+		top: 200px;
+		left: 200px;
+		display: none;
+		z-index: 10000;
+		background-color: #111111;
+		padding: 10px;
+		border: 1px solid #464646;
+		font-size: 11px;
+	}
+	
+	h1 {
+		color: #1d4c7a;
+		padding: 0px;
+		margin: 0px;
+		font-size: 15px;
+		font-weight: bold;
+		margin-bottom: 10px;
+	}
+	
+	#shield_count {
+		position: absolute; 
+		left: 77px; 
+		background-color: #383938; 
+		width: 100px; 
+		bottom: 15px; 
+		border: 3px solid black;
+		border-radius: 4px; 
+		text-align: center; 
+		font-size: 11px; 
+		padding: 1px;
+		color: #e3e3e3;
+	}
+	
+	#health_count {
+		position: absolute; 
+		left: 302px; 
+		background-color: #383938; 
+		width: 100px; 
+		z-index: 1999; 
+		bottom: 15px; 
+		border: 3px solid black;
+		border-radius: 4px; 
+		text-align: center; 
+		font-size: 11px; 
+		padding: 1px;
+		color: #e3e3e3;
+	}

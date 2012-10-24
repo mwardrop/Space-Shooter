@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>A HTML 5 Space Shooter</title>
+		<meta name="description" content="A HTML 5 Space Shooter." />
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<link rel="stylesheet" href="style.css" />
+		<link type="text/css" href="dot-luv/jquery-ui-1.8.5.custom.css" rel="stylesheet" />	
+		<script src="jquery.js"></script>
+		<script src="jquery-ui.js"></script>
+		<script src="engine.js"></script>
+		<script src="ship.js"></script>
+		<script src="ships.js"></script>
+		<script src="shipmanager.js"></script>
+		<script src="player.js"></script>
+		<script src="map.js"></script>
+		<script src="viewport.js"></script>
+		<script src="npc.js"></script>
+		<script src="math.js"></script>
+		<script src="projectile.js"></script>
+		<script src="projectiles.js"></script>
+		<script src="overlay.js"></script>
+		<script src="network.js"></script>
+		<script src="chat.js"></script>
+		<script src="inventorymanager.js"></script>
+		<script src="loot.js"></script>
+		<script src="lootitems.js"></script>
+		<script src="weapon.js"></script>
+		<script src="weapons.js"></script>
+		<script src="radar.js"></script>
+		<script src="radars.js"></script>
+		<script src="shield.js"></script>
+		<script src="shields.js"></script>
+		<script type="text/javascript">
+			var game = null;
+			$(document).ready(function() {
+				var gameMode = 0;
+				var gameShip = 0;
+				var self = this;
+				$("input[name=login], input[name=respawn]").click(function () {
+					game = new Engine();
+					game.player.username = $("input[name=username]").val();
+					game.startGame(self.gameMode, self.gameShip);
+					
+				});
+				
+
+				$("#canvas").click(function () {
+					game.hasFocus = true;
+				});
+
+				$("input[name=login]").button();
+				$("input[name=respawn]").button();
+				
+				$(document).keypress(function(event) {
+					if(game.state == 0) {
+						if(parseInt(event.keyCode) == 13) {
+							$(this).keypress(function () { });
+							$("input[name=login]").click();
+						}
+					}
+				});
+				
+				$(".game_selector_item").click(function () {
+					if($(this).attr("id") == "game_mode_1" || $(this).attr("id") == "game_mode_2") {
+						alert("Sorry, this game mode is currently disabled.");
+					} else {
+						$(this).parent().find(".game_selector_item").css("border", "1px solid #616161");
+						$(this).css("border", "1px solid #0059af");
+						if($(this).attr("id").indexOf("game_mode") != -1) {
+							self.gameMode = $(this).attr("id").split("_")[2];
+						} else {
+							self.gameShip = $(this).attr("id").split("_")[2];
+						}
+					}
+					
+				});
+				
+					//game = new Engine();
+					//game.player.username = $("input[name=username]").val();
+					//game.startGame(self.gameMode, self.gameShip);
+					
+			});
+
+		</script>
+	</head>
+	<body>
+	
+		<div id="login">
+			<h1 style="color: #0059af;"> SPACE SHOOTER </h1>
+			<table id="game_selector_table">
+				<tr><!--
+					<td>
+						<h3 style=""> Pick a Battleground </h3>
+						<div class="game_selector_item" style="border: 1px solid #0059af;" id="game_mode_0">
+							<span style="float: left; margin: 10px; height: 70px; width: 50px;"><img src="images/training_grounds.png" /></span>
+							<h2 style="color: #0059af; display: inline;"> Training Grounds </h2><br /><br />
+							Gather new gear, learn new offensive and defensive strategies while grinding out mobs of bad guys!
+						</div>
+						<div class="game_selector_item" id="game_mode_1">
+							<span style="float: left; margin: 10px; height: 70px; width: 50px;"><img src="images/arena.png" /></span>
+							<h2 style="color: #0059af; display: inline;"> Arena </h2>
+							<br /><br />
+							Be the biggest and the baddest in the universe. Show off your latest strategies and loot while owning noobs!
+						</div>
+						<div class="game_selector_item" id="game_mode_2">
+							<span style="float: left; margin: 10px; height: 70px; width: 50px;"><img src="images/spaceport.png" /></span>
+							<h2 style="color: #0059af; display: inline;"> Spaceport </h2><br /><br />
+							Coming Soon! Explore unknown corners of the universe with your friends. Battle epic monsters and compete in world PVP.
+						</div>
+					</td> -->
+					<td>
+						<h3 style=""> Pick a Space Ship </h3>
+						<div class="game_selector_item" style="border: 1px solid #0059af;" id="game_ship_0">
+							<span style="float: left; margin: 10px; height: 70px; width: 50px;"><img src="images/falcon_icon.png" /></span>
+							<h2 style="color: #0059af; display: inline;"> Falcon </h2><br /><br />
+								The Falcon is a decisive light weight assault ship. Often used for hit and run missions, the Falcon uses damage and speed in a lethal combination.
+						</div>
+						<div class="game_selector_item" id="game_ship_1">
+							<span style="float: left; margin: 10px; height: 70px; width: 50px;"><img src="images/bulldog_icon.png" /></span>
+							<h2 style="color: #0059af; display: inline;"> Bulldog </h2>
+							<br /><br />
+								Based on deep space mining ship hull design. The Bulldog is the premiere front line defender, capable of taking on massive amounts of damage.
+						</div>
+						<div class="game_selector_item" id="game_ship_2">
+							<span style="float: left; margin: 10px; height: 70px; width: 50px;"><img src="images/rosethorne_icon.png" /></span>
+							<h2 style="color: #0059af; display: inline;"> Rose Thorne </h2><br /><br />
+								The Rose Thorne medical supply ship keeps the troops fighting. Capable of healing friendly ships, the Rose Thorne is everyone's best friend.
+						</div>
+					</td>
+				</tr>
+			</table><br />
+			<h3 style=" display: inline;color: #0059af;"> Call Sign: </h3> <input type="text" name="username" value="SpaceNoob" />&nbsp;&nbsp;<input type="button" name="login" value="Join the battle!" />
+		</div>
+		
+		<canvas id="canvas" width="1200" height="600">
+			Your going to need a modern browser to survive the depths of space and your old junker just doesn't cut it.<br /><br />
+			Upgrade for free : <a href="http://www.firefox.com">FireFox</a> <a href="http://www.google.com/chrome">Chrome</a>
+		</canvas> 
+		
+		<div id="gameOver">
+			<h1 style="color: #0059af;"> GAME OVER! </h1>
+			<input type="button" name="respawn" value="Play Again?" />
+		</div>
+		
+		<div id="chat">
+			<div id="chatTabs">
+				<ul id="chatHandle">
+					<!--<li><a href="#welcomeChat">Welcome</a></li>-->
+				</ul>
+			</div>
+			<div id="chatInput">
+				<input type="text" name="chatInput" />
+			</div>
+		</div>
+		
+		<div id="inventory">
+			<ul id="invHandle">
+				<li><a href="#inv_tab_1">Inventory</a></li>
+			</ul>
+			<div id="inv_tab_1">
+				<table id="inv_header_table">
+					<tr>
+						<td><img src="images/coin.png" /></td>
+						<td style="font-size: 13px; font-weight: bold;" id="coin_count">0</td>
+					</tr>
+				</table>
+				<div id="inv_con">
+					<table id="inv_slots">
+						<tr>
+							<td><div id="inv_1" class="inv_slot" style=""></div></td>
+							<td><div id="inv_2" class="inv_slot" style=""></div></td>
+							<td><div id="inv_3" class="inv_slot" style=""></div></td>
+							<td><div id="inv_4" class="inv_slot" style=""></div></td>
+							<td><div id="inv_5" class="inv_slot" style=""></div></td>
+							<td><div id="inv_6" class="inv_slot" style=""></div></td>
+						</tr>
+						<tr>
+							<td><div id="inv_7" class="inv_slot" style=""></div></td>
+							<td><div id="inv_8" class="inv_slot" style=""></div></td>
+							<td><div id="inv_9" class="inv_slot" style=""></div></td>
+							<td><div id="inv_10" class="inv_slot" style=""></div></td>
+							<td><div id="inv_11" class="inv_slot" style=""></div></td>
+							<td><div id="inv_12" class="inv_slot" style=""></div></td>
+						</tr>
+						<tr>
+							<td><div id="inv_13" class="inv_slot" style=""></div></td>
+							<td><div id="inv_14" class="inv_slot" style=""></div></td>
+							<td><div id="inv_15" class="inv_slot" style=""></div></td>
+							<td><div id="inv_16" class="inv_slot" style=""></div></td>
+							<td><div id="inv_17" class="inv_slot" style=""></div></td>
+							<td><div id="inv_18" class="inv_slot" style=""></div></td>
+						</tr>
+						<tr>
+							<td><div id="inv_19" class="inv_slot" style=""></div></td>
+							<td><div id="inv_20" class="inv_slot" style=""></div></td>
+							<td><div id="inv_21" class="inv_slot" style=""></div></td>
+							<td><div id="inv_22" class="inv_slot" style=""></div></td>
+							<td><div id="inv_23" class="inv_slot" style=""></div></td>
+							<td><div id="inv_24" class="inv_slot" style=""></div></td>
+						</tr>
+					</table>
+				</div>
+			</div>
+		</div>
+		
+		<div id="interface">
+			<div id="int_top">
+				<table>
+					<tr>
+						<td style="width: 38px; padding-left: 2px;">
+							<div id="wep_1" class="int_slot"></div>
+						</td>
+						<td style="width: 38px; padding-left: 5px;">
+							<div id="wep_2" class="int_slot"></div>
+						</td>
+						<td style="width: 38px; padding-left: 5px;">
+							<div id="wep_3" class="int_slot"></div>
+						</td>
+						<td rowspan="2" style="width: 158px; height: 88px;">
+							<div id="minimap"></div>
+						</td>
+						<td style="width: 38px;padding-left: 4px;">
+							<div id="acc_1" class="int_slot"></div>
+						</td>
+						<td style="width: 38px;padding-left: 5px;">
+							<div id="acc_2" class="int_slot"></div>
+						</td>
+						<td style="width: 38px;padding-left: 5px;">
+							<div id="acc_3" class="int_slot"></div>
+						</td>
+					</tr>
+				</table>
+			</div>
+			<div id="int_bottom">
+				<table >
+					<tr>
+						<td>
+							<div class="int_slot" id="shield" style="margin-top: auto; position: relative; right: 1px; bottom: 1px;"></div>
+						</td>
+						<td style="width: 151px;">
+							<div id="shield_energy">&nbsp;</div>
+						</td>
+						<td style="width: 84px;">
+							<span id="shield_count"><span class="current"></span> / <span class="total"></span></span>
+							<span id="health_count"><span class="current"></span> / <span class="total"></span></span>
+						</td>
+						<td style="width: 145px;">
+							<div id="life_energy">&nbsp;</div>
+						</td>
+						<td>
+							<div class="int_slot" id="radar" style="margin-top: auto; right: 1px; bottom: 1px;"></div>
+						</td>
+					</tr>
+				</table>
+			</div>
+		</div>
+		<div id="toolTip">
+		
+		</div>
+	</body>
+</html>

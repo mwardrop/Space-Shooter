@@ -1,0 +1,415 @@
+from geventwebsocket.handler import WebSocketHandler
+from gevent.pywsgi import WSGIServer
+from time import time
+from UserDict import UserDict
+from json import dumps, loads
+from gevent.local import local
+
+from sys import stdout
+
+CMD_OK = 0
+CMD_ERROR = 1
+GLOBALCHAN = 'system'
+HELPCHAN = 'info'
+SERVERNAME = '*system'
+VERSION = '$ Revision: 2 $'
+banner = """Welcome to rchat {0}""".format( VERSION )
+
+INFO = """Basic information regarding the chat.
+--------------------------------------------------------------------------------
+- Its still *very* alpha at best and only supports basic functionality at best 
+so far
+- It requires a WebSocket capable browser (Chrome, FF4+, safari(?)), however 
+there is a flashsocket hack inplace that is known to at least support FF3.x for 
+now, possibly IE6-8, im not sure.
+ 
+Currently Planned Featureset
+--------------------------------------------------------------------------------
+- Channel operators/admins
+- Persistent channels
+- Authentication system
+- Private messages
+- File Transfers (Direct User -> User, like DCC)!
+- Local settings
+- Full transport encryption
+- User<->user chat (DCC)
+- IRC Proxy support (?)
+- Colored messaged
+- Link parsing
+- Local chat history
+- Channel Topics
+
+Currently Supported Commands
+--------------------------------------------------------------------------------
+/join channel      - Join a channel
+/part [channel]    - Leaves either current channel or provided channel
+
+Questions, Comments and Concerns
+--------------------------------------------------------------------------------
+- Tell me, anyone looking at this will current know how to reach me ;)
+
+
+Enjoy,
+roto
+
+"""
+
+class Response:
+	__data = {'status' : None, 'msg' : None}
+
+	def __init__( self ):
+		pass
+
+	def status( self, val = None ):
+		if val == None:
+			return self.__data['status']
+		else:
+			self.__data['status'] = val
+
+	def msg( self, val = None ):
+		if val == None:
+			return self.__data['msg']
+		else:
+			self.__data['msg'] = val
+
+	def encode( self ):
+		return dumps( self.__data )
+
+	def decode( self, data ):
+		self.__data = loads( data )
+
+class InvalidRequest( Exception ):
+	pass
+
+class Request( local ):
+	__data = { 'cmd' : None, 'args' : dict()}
+
+	__cmdTable = {
+		'names'		: {'channel' : None, 'names' : None},
+	  'name'		: {'name'    : None},
+	  'nick' 		: {'nick'    : None},
+	  'join' 		: {'channel' : None},
+	  'quit' 		: {'msg'     : None},
+	  'part' 		: {'source'  : None, 'name'   : None, 'channel' : None},
+	  'kick' 		: {'channel' : None, 'user'   : None},
+	  'ban' 		: {'channel' : None, 'user'   : None},
+	  'msg' 		: {'source'  : None, 'target' : None, 'msg' : None, 'pm' : None }
+	}
+
+	def __setattr__( self, k, v ):
+		if self.__data['cmd'] == None:
+			raise AssertionError( "Must set cmd first" )
+
+		if not self.__cmdTable[self.__data['cmd']].has_key( k ):
+			raise IndexError( "Invalid argument" )
+
+		self.__data['args'][k] = v
+
+	def __getattr__( self, k ):
+		try:
+			return self.__data['args'][k]
+		except Exception, e:
+			raise e
+
+	def __init__( self, cmd = None, args = None ):
+		if cmd:
+			self.setReqType( cmd )
+		if args and type( args ).__name__ == 'dict':
+			for arg in args.keys():
+				self.__setattr__( arg, args[arg] )
+
+	def setReqType( self, type ):
+		if not self.__cmdTable.has_key( type ):
+			raise InvalidRequest( "Invalid command request" )
+		self.__data['cmd'] = type
+
+	def setArg( self, arg, val ):
+		# LEGACY should be removed soon
+		self.__setattr__( arg, val )
+
+	def encode( self ):
+		return dumps( self.__data )
+
+def l( msg ):
+	print "{0}".format( msg )
+
+class ClientHandler( WebSocketHandler ):
+	channels = dict()
+	ws = None
+	_connected = None
+	_name = None
+
+	def __init__( self , ws ):
+		#init base wshandler
+		self.ws = ws
+		self.connected = time()
+
+	def send( self, data ):
+		print "SEND {0}".format( data )
+		self.ws.send( data )
+
+	def setName( self, name ):
+		self._name = name
+
+	@property
+	def name( self ):
+		return self._name
+
+	@property
+	def online( self ):
+		return time() - self.connected
+
+class SpaceShooterWSD:
+	_channels = { 'system' : {} }
+	_clients = dict()
+
+	_server = None
+
+	_ver = "SpaceChat 0.1"
+	_sysprefix = "[SYSTEM]:"
+	_cmds = dict()
+
+	def __init__( self ):
+		self.server = WSGIServer( ( '0.0.0.0', 8000 ), self.app, log = stdout, handler_class = WebSocketHandler )
+
+	def addChannel( self, chan ):
+		if not self._channels.has_key( chan ):
+			self._channels[chan] = dict()
+			return True
+		return False
+
+	def delChannel( self, chan ):
+		if not self._channels.has_key( chan ):
+			return Exception( "Unknown channel" )
+		del self._channels[chan]
+
+	def addClient( self, client ):
+		if self._clients.has_key( client.name ):
+			raise Exception( "User exists" )
+		self._clients[client.name] = client
+
+	def delClient( self , client ):
+		if self._clients.has_key( client.name ):
+			del self._clients[client.name]
+
+	def joinChannel( self, client, channel ):
+		if not self._channels.has_key( channel ):
+			self.addChannel( channel )
+		self._channels[channel][client.name] = client
+
+	def shutdown( self ):
+		del self.server
+		print "Closed server"
+
+	def getName( self, ws ):
+		"""
+		Ask the client for a name until we receive a valid unique one.
+		"""
+		data = ws.wait()
+
+		if data is None:
+			return None
+		data = loads( data )
+
+		name = data['args']['name']
+
+		if not self._clients.has_key( name ):
+			return data['args']['name']
+		return None
+
+	def handle( self, ws ):
+		"""  This is the websocket handler function.  Note that we
+		can dispatch based on path in here, too."""
+
+		C = None
+		try:
+			C = ClientHandler( ws )
+
+			if ws.path == '/chat':
+				addr = C.ws.socket.getpeername()
+				l( "Client connected: {0}:{1}".format( addr[0], addr[1] ) )
+
+				# Retreive their username
+				name = None
+				while name == None:
+					name = self.getName( C.ws )
+
+				# Set clients nick
+				C.setName( name )
+
+				self.name( C, {"name" : C.name} )
+
+				# Add to client and channel tables
+				self._clients[C.name] = C
+				self._channels[GLOBALCHAN][C.name] = C
+
+				# Make user joi nthe global channel by default
+				self.join( C, {'channel' : GLOBALCHAN } )
+				self.join( C, {'channel' : HELPCHAN } )
+				self.msg( C, { "source" : SERVERNAME,
+											"target" : GLOBALCHAN,
+											"pm" : 0,
+											"msg" : "{0} has connected.".format( name )	} )
+
+				for line in INFO.splitlines():
+					self.msg( C, { "source" : SERVERNAME,
+											"target" : GLOBALCHAN,
+											"pm" : 0,
+											"msg" : "{0}".format( line )	} )
+
+				while True:
+					msg = C.ws.wait()
+					if msg is None:
+						break
+
+					# Override any client source param to prevent spoofing
+					data = loads( msg )
+					data['args']['source'] = C.name
+
+					print "RECV {0}".format( data )
+
+					# Parse data sent to us
+					self.parse( C, data )
+
+				l( "Disconnecting: {0}".format( C.name ) )
+
+		except Exception, e:
+			l( e )
+		finally:
+			if C:
+				try:
+					l( "Clearing server of {0}".format( C.name ) )
+					C.ws.close_connection()
+				except Exception, e:
+					print e
+
+				for chan in C.channels:
+					try:
+						del self._channels[chan][C.name]
+					except Exception, e:
+						print e
+
+				try:
+					del self._clients[C.name]
+				except Exception, e:
+					print e
+
+				try:
+					del C
+				except Exception, e:
+					print e
+
+	def parse( self, client, data ):
+
+		try:
+			getattr( self, data['cmd'] )( client, data['args'] )
+		except Exception, e:
+			print "ERROR PARSING", e
+
+	def sendAll( self, data ):
+		for client in self._clients.values():
+			client.send( data )
+
+	def send( self, data, user ):
+		self._clients[user].send( data )
+
+	def name( self, client, args ):
+		r = Request( "name" )
+		r.setArg( "name", args['name'] )
+		# TODO send to all channels
+		client.send( r.encode() )
+
+	def names( self , client, args ):
+		r = Request( "names" )
+		r.setArg( "names", self._channels[args['channel']].keys() )
+		r.setArg( "channel", args['channel'] )
+		client.send( r.encode() )
+
+	def namech( self, args ):
+		r = Request()
+		r.setReqType( "join" )
+		r.setArg( "channel", "global" )
+		r.setArg( "name", args['name'] )
+		self.sendAll( r.encode() )
+
+	def join( self, client, args ):
+
+		if args['channel'].startswith( "#" ):
+			args['channel'] = args['channel'][1:]
+
+		self.joinChannel( client, args['channel'] )
+		r = Request()
+		r.setReqType( "join" )
+		r.setArg( "channel", args['channel'] )
+		req = r.encode()
+		for c in self._channels[args['channel']].values():
+			c.send( req )
+
+	def part( self, client, args ):
+		if not self._channels.has_key( args['channel'] ):
+			return False
+		if not self._channels[args['channel']].has_key( client.name ):
+			return False
+
+		r = Request( "part" )
+		r.channel = args['channel']
+		r.name = client.name
+		data = r.encode()
+		for c in self._channels[args['channel']].values():
+			c.send( data )
+
+		# Cleanup
+		del self._channels[args['channel']][client.name]
+		self._checkChan( args['channel'] )
+		del self._clients[client.name].channels[args['channel']]
+
+	def notice( self, client, args ):
+		r = Request( "notice" )
+		r.setArg( "msg", args['msg'] )
+		r.setArg( "target", args['channel'] )
+		r.setArg( "source", args['source'] )
+		data = r.encode()
+		self._clients[args['target']].send( data )
+
+	def msg( self, client, args ):
+		r = Request( "msg" )
+		r.setArg( "msg", args['msg'] )
+		r.setArg( "pm" , args['pm'] )
+		r.setArg( "target", args['target'] )
+		r.setArg( "source", args['source'] )
+		data = r.encode()
+		if args['pm'] == 1:
+			self._clients[args['target']].send( data )
+		else:
+			for c in self._channels[args['target']].values():
+				c.send( data )
+
+	def app( self, environ, start_response ):
+		if environ['PATH_INFO'] == '/test':
+			start_response( "200 OK", [( 'Content-Type', 'text/plain' )] )
+			return ["poop"]
+		elif environ['PATH_INFO'] == "/chat":
+			self.handle( environ['wsgi.websocket'] )
+		else:
+			start_response( "404 Not Found", [] )
+			return []
+
+	def _checkChan( self, channel ):
+		if len( self._channels[channel] ) == 0:
+			del self._channels[channel]
+
+	def run( self ):
+		l( "Starting Space Shooter Daemon" )
+		self.server.serve_forever()
+
+if __name__ == "__main__":
+	s = SpaceShooterWSD()
+	try:
+		s.run()
+	except KeyboardInterrupt:
+		print "Caught ctrl+c"
+	except Exception, e:
+		print "Caught exception: ", e
+	finally:
+		s.shutdown()
+

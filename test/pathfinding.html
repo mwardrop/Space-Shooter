@@ -1,0 +1,460 @@
+<html>
+<head>
+<title>Path Experimenter</title>
+<script type="text/javascript">
+
+// (C) Andrea Giammarchi
+//	Special thanks to Alessandro Crugnola [www.sephiroth.it]
+function AStar(Find){
+	$('lblMessage').innerHTML = "AStar ("+Find+") path from <i>" + base.start.x + "/" + base.start.y + " to " + base.end.x + "/" + base.end.y + "</i>";
+	
+	base.cleanGrid();
+	var stime = new Date().getTime();
+		
+	function AStar(){
+		switch(Find){
+			case "Diagonal":
+			case "Euclidean":
+				Find=DiagonalSuccessors;
+				break;
+			case "DiagonalFree":
+			case "EuclideanFree":
+				Find=DiagonalSuccessors$;
+				break;
+			default:
+				Find=function(){};
+				break;
+		}
+	}
+	function $Grid(x,y){
+		return base.data[y*base.width+x]==0;
+	}
+	function Node(Parent,Point){
+		return{Parent:Parent,value:Point.x+(Point.y*cols),x:Point.x,y:Point.y,f:0,g:0}
+	};
+	function Path(){
+		var $Start=Node(null,{x:base.start.x,y:base.start.y}),$Goal=Node(null,{x:base.end.x,y:base.end.y}),AStar=new Array(limit),Open=[$Start],Closed=[],result=[],$Successors,$Node,$Path,length,max,min,i,j;
+		while(length=Open.length){
+			max=limit;
+			min=-1;
+			for(i=0;i<length;i++){
+				if(Open[i].f<max){
+					max=Open[i].f;
+					min=i;
+				}
+			}
+			$Node=Open.splice(min,1)[0];
+			if($Node.value===$Goal.value){
+				$Path=Closed[Closed.push($Node)-1];
+				do{
+					result.push([$Path.x,$Path.y]);
+				} while($Path=$Path.Parent);
+				AStar=Closed=Open=[];
+				result.reverse();
+			}else{
+				$Successors=Successors($Node.x,$Node.y);
+				for(i=0,j=$Successors.length;i<j;i++){
+					$Path=Node($Node,$Successors[i]);
+					if(!AStar[$Path.value]){
+						$Path.g=$Node.g+Distance($Successors[i],$Node);
+						$Path.f=$Path.g+Distance($Successors[i],$Goal);
+						Open.push($Path);
+						AStar[$Path.value]=true;
+					}
+				}
+				Closed.push($Node);
+			}
+		}
+		return result;
+	}
+	function Successors(x,y){
+		var N=y-1,S=y+1,E=x+1,W=x-1,$N=N>-1&&$Grid(x,N),$S=S<rows&&$Grid(x,S),$E=E<cols&&$Grid(E,y),$W=W>-1&&$Grid(W,y),result=[];
+		if($N)result.push({x:x,y:N});
+		if($E)result.push({x:E,y:y});
+		if($S)result.push({x:x,y:S});
+		if($W)result.push({x:W,y:y});
+		Find($N,$S,$E,$W,N,S,E,W,result);
+		return result;
+	}
+	function DiagonalSuccessors($N,$S,$E,$W,N,S,E,W,result){
+		if($N){
+			if($E&&$Grid(E,N))result.push({x:E,y:N});
+			if($W&&$Grid(W,N))result.push({x:W,y:N});
+		}
+		if($S){
+			if($E&&$Grid(E,S))result.push({x:E,y:S});
+			if($W&&$Grid(W,S))result.push({x:W,y:S});
+		}
+	}
+	function DiagonalSuccessors$($N,$S,$E,$W,N,S,E,W,result){
+		$N=N>-1;
+		$S=S<rows;
+		$E=E<cols;
+		$W=W>-1;
+		if($E){
+			if($N&&$Grid(E,N))result.push({x:E,y:N});
+			if($S&&$Grid(E,S))result.push({x:E,y:S});
+		}
+		if($W){
+			if($N&&$Grid(W,N))result.push({x:W,y:N});
+			if($S&&$Grid(W,S))result.push({x:W,y:S});
+		}
+	}
+	function Diagonal(Point,Goal){
+		return max(abs(Point.x-Goal.x),abs(Point.y-Goal.y));
+	}
+	function Euclidean(Point,Goal){
+		return sqrt(pow(Point.x-Goal.x,2)+pow(Point.y-Goal.y,2));
+	}
+	function Manhattan(Point,Goal){
+		return abs(Point.x-Goal.x)+abs(Point.y-Goal.y);
+	}
+	var abs=Math.abs,max=Math.max,pow=Math.pow,sqrt=Math.sqrt,cols=base.width,rows=base.height,limit=cols*rows,Distance={Diagonal:Diagonal,DiagonalFree:Diagonal,Euclidean:Euclidean,EuclideanFree:Euclidean,Manhattan:Manhattan}[Find]||Manhattan;
+	var result = Path(AStar());
+	var etime = new Date().getTime();
+	base.drawPath(result);
+	$('lblMessage').innerHTML += (result ? "" : " <b>FAILED</b>") + " in " + (etime-stime) + " ms";
+	
+	return (etime-stime);
+};
+
+function BestFirst() {
+	this.grid ='';
+	this.findPath = function() {
+		var tb = $('grid');
+		if(!base.start || !base.end) {
+			$('lblMessage').innerHTML = "Start or end point missing.";
+			return;
+		}
+		
+		// clean grid
+		base.cleanGrid();
+		this.grid = base.data; //base.getGrid();
+		
+		$('lblMessage').innerHTML = "Best First path from <i>" + base.start.x + "/" + base.start.y + " to " + base.end.x + "/" + base.end.y + "</i>";
+		
+		var stime = new Date().getTime();
+		var result = this.makePath(base.start.x, base.start.y, base.end.x, base.end.y);
+		var etime = new Date().getTime();
+		if(this.path.N)this.drawPath(this.path.N);
+		$('lblMessage').innerHTML += (result ? "" : " <b>FAILED</b>") + " in " + (etime-stime) + " ms";
+		
+		if(result) {
+			var r = (etime-stime);
+			return r<1 ? 1 : r;
+		} else {
+			return 0;
+		}
+	}
+
+	this.map = [];
+	this.path = {};
+	this.endx = 0;
+	this.endy = 0;
+	this.makePath = function(startx, starty, targetx, targety){
+	  this.path={};
+	  this.path.Unchecked_Neighbours=[];
+	  this.path.done = false;
+	  this.endx = targetx;
+	  this.endy = targety;
+	  
+	  var pos = base.width*starty+startx;
+	  var cost = this.distance(startx, starty);
+	  this.path[pos]={x:startx, y:starty, visited:true, parentx:null, parenty:null, cost:cost};
+	  this.path.Unchecked_Neighbours[this.path.Unchecked_Neighbours.length]=this.path[pos];
+	  while(this.path.Unchecked_Neighbours.length>0) {
+		var N = this.path.Unchecked_Neighbours.shift();
+		if (N.x == targetx && N.y == targety) {
+		  this.path.N = N;
+		  this.path.done = true;
+		  break;
+		}else {
+			//N.visited=true;
+			this.addNode (N, N.x+1, N.y);
+			this.addNode (N, N.x-1, N.y);
+			this.addNode (N, N.x, N.y+1);
+			this.addNode (N, N.x, N.y-1);
+			
+			// diagonals
+			this.addNode (N, N.x+1, N.y+1);
+			this.addNode (N, N.x-1, N.y-1);
+			this.addNode (N, N.x-1, N.y+1);
+			this.addNode (N, N.x+1, N.y-1);
+
+		}
+	  }
+	  //delete this.path;
+	  if (this.path.done) {
+		return true;
+	  }else {
+		this.path.N = N;
+		return false;
+	  }
+	}
+	
+	this.distance = function(startx, starty) { // 429.486, 429.486 : 3477.974
+		return Math.sqrt(Math.pow(startx-this.endx,2)+Math.pow(starty-this.endy,2))
+	}
+	
+	this.addNode = function(ob, x, y){
+	  var pos = y*base.width+x;
+	  if(x>-1 && y>-1 && x<base.width && y<base.height && this.grid[pos]==0) {
+		if (!this.path[pos]) {
+		  var cost = this.distance(x, y, this.endx, this.endy);
+		  var node = this.path[pos]={x:x, y:y, parentx:ob.x, parenty:ob.y, cost:cost};
+		  var numNeighbors = this.path.Unchecked_Neighbours.length;
+		  for(var i=0; i<numNeighbors; i++){
+			if (cost<this.path.Unchecked_Neighbours[i].cost){
+				this.path.Unchecked_Neighbours.splice(i, 0, node);
+				break;
+			}
+		  }
+		  if (i>=numNeighbors) {
+			this.path.Unchecked_Neighbours[numNeighbors]=node;
+		  }
+		}
+	  }
+	}
+
+
+	this.drawPath = function(ob){
+		this.map.path = [];
+		while (ob.parentx!=null){
+			this.map.path[this.map.path.length]={x:ob.x,y:ob.y};
+			ob=this.path[base.width*ob.parenty+ob.parentx];
+		}
+		base.drawPath(this.map.path);
+	}
+
+}
+
+function GridBase() {
+	this.width = 0;
+	this.height = 0;
+	this.data = [];
+	this.start = null;
+	this.end = null;
+	this.drawPath = function(path) {
+		var rows = $('grid').rows;
+		for(var i=0;i<path.length;i++) {
+			var ob = path[i];
+			if(ob.length) {
+				ob = {x:ob[0],y:ob[1]};
+			}
+			var c = rows[ob.y].cells[ob.x];
+			if(!c.className) c.className = 'path';
+		}
+	}
+	this.drawGrid = function(w, h, data) {
+		this.width = w; this.height = h;
+		this.adjustCellSize();
+		var s = '<table id="grid">';
+		//debugger
+		for(var y=0;y<h; y++) {
+			s += "<tr>";
+			for(var x=0;x<w;x++) {
+				s+= '<td x="'+x+'" y="'+y+'" onclick="base.clickCell(event, this);" oncontextmenu="return base.contextCell(event,this);"'
+				  + (data && data.substr(x+y*w,1)=="1" ? ' class="solid"' : '')
+				  + '></td>';
+			}
+			s += "</tr>";
+		}
+		s += "</table>";
+		return s;
+	}
+	this.adjustCellSize = function() {
+		var newsize = (document.body.clientHeight-350)/(this.width*1);
+		var ss = document.styleSheets[0]; //$('ss');
+		//debugger
+		var rule = (ss.cssRules ? ss.cssRules[ss.cssRules.length-1] : ss.rules[ss.rules.length-1]);
+		rule.style.width = newsize+'px';
+		rule.style.height = (newsize+2)+'px';
+		//ss.styleSheet.cssText = ss.styleSheet.cssText.replace(/#gridwrapper TD {width:\d+px;height:\d+px;}/gi,"#gridwrapper TD {width:"+newsize+"px;height:"+(newsize+2)+"px;}");
+	}
+	this.cleanGrid = function() {
+		//this.putGrid(this.data);
+		var paths = getElementsByClassName('path', 'td', $('grid'));
+		for(var i=0;i<paths.length;i++) paths[i].className='';
+		this.drawStartAndEnd();
+	}
+	this.getGrid = function() {
+		return this.data.join('');
+	}
+	this.putGrid = function(data) {
+		this.data = (data ? data : $('gridCode').value);
+		this.drawGrid(this.width, this.height, this.data);
+	}
+	this.randomGrid = function(w,h) {
+		if(w) this.width = w;
+		if(h) this.height = h;
+
+		this.data = Array(this.height*this.width+1).join('0').split('');
+		
+		var pos = 0;
+		var num = $('txtNumSquares').value;
+		for(var i=0;i<num;i++) {
+			pos = rand(this.height)*this.width+rand(this.width);
+			this.data[pos] = '1';
+		}
+		$('gridwrapper').innerHTML = this.drawGrid(this.width,this.height,this.data.join(''));
+		if(!this.start) this.setStart(0,0);
+		if(!this.end) this.setEnd(this.width-1, this.height-1);
+		this.drawStartAndEnd();
+	}
+	this.setStart = function(x,y) {
+		this.start = {x:x,y:y};
+		this.drawStartAndEnd();
+	}
+	this.setEnd = function(x,y) {
+		this.end = {x:x,y:y};
+		this.drawStartAndEnd();
+	}
+	this.drawStartAndEnd = function() {
+		if(this.start) {
+			$('grid').rows[this.start.y].cells[this.start.x].className='start';
+			this.setCell(this.start.x, this.start.y, 0);
+		}
+		if(this.end) {
+			$('grid').rows[this.end.y].cells[this.end.x].className='end';
+			this.setCell(this.end.x, this.end.y, 0);
+		}
+	}
+	this.setCell = function(x, y, value) {
+		var d = this.data;
+		d[x+y*this.width] = value;
+	}
+	this.contextCell = function(event, obj) {
+		var cn = 'start';
+		if(event.shiftKey) cn='end';
+		this[cn] = {x:obj.getAttribute('x')*1,y:obj.getAttribute('y')*1};
+		var els = $('grid').getElementsByClassName(cn);
+		for(var i=0;i<els.length;i++) els[i].className = '';
+		this.toggleCell(obj, cn);
+		return false;
+	}
+	this.clickCell = function(event, obj) {
+		this.toggleCell(obj, 'solid');
+		return false;
+	}
+	this.toggleCell = function(obj, newclass) {
+		obj.className = (obj.className ? '' : newclass) ;
+		if(obj.className=='') {
+			this.setCell(obj.getAttribute('x')*1,obj.getAttribute('y')*1,0);
+		} else if(newclass=='solid') {
+			this.setCell(obj.getAttribute('x')*1,obj.getAttribute('y')*1,1);
+		}
+	}
+}
+
+var base = new GridBase();
+function $(el) { return document.getElementById(el); }
+function getElementsByClassName(className, tag, elm){
+	var testClass = new RegExp("(^|\\s)" + className + "(\\s|$)");
+	var tag = tag || "*";
+	var elm = elm || document;
+	var elements = (tag == "*" && elm.all)? elm.all : elm.getElementsByTagName(tag);
+	var returnElements = [];
+	var current;
+	var length = elements.length;
+	for(var i=0; i<length; i++){
+		current = elements[i];
+		if(testClass.test(current.className)){
+			returnElements.push(current);
+		}
+	}
+	return returnElements;
+}
+
+
+function rand(max) // lower bound and upper bound
+{
+	return Math.floor(Math.random() * max);
+}
+
+function ClearCounters(idx) {
+	var el = $('run'+idx);
+	if(el) {
+		el.runs=0;
+		el.runtotal=0;
+	}
+}
+function RunBestFirst(timestorun) {
+	if($('chkMakeNew').checked) base.randomGrid();
+	var a = new BestFirst()
+	var r = a.findPath();
+	var el = $('run1');
+	if(r>0) {
+		el.runtotal+=r;
+		el.runs++;
+		var tags = el.getElementsByTagName('span');
+		tags[0].innerHTML = (el.runtotal/el.runs).toFixed(2).toString();
+		tags[1].innerHTML = el.runs.toString();
+		timestorun--;
+	}
+	if(timestorun>0) {
+		//debugger;
+		setTimeout('RunBestFirst('+timestorun+')', 10);
+	}
+}
+function RunAStar(timestorun, idx, method) {
+	if($('chkMakeNew').checked) base.randomGrid();
+	var a = AStar(method);
+	var el = $('run'+idx);
+	if(a) {
+		el.runtotal+=a;
+		el.runs++;
+		var tags = el.getElementsByTagName('span');
+		tags[0].innerHTML = (el.runtotal/el.runs).toFixed(2).toString();
+		tags[1].innerHTML = el.runs.toString();
+		timestorun--;
+	}
+	if(timestorun>0) {
+		setTimeout("RunAStar("+timestorun+","+idx+",'"+method+"')", 10);
+	}
+}
+</script>
+
+<style type="text/css" id="ss">
+INPUT {font-size:10px}
+#gridwrapper { empty-cells:show; }
+#gridwrapper TABLE {border-collapse:collapse;border:1px solid #DDD}
+#gridwrapper TD {
+	text-align:center;
+	vertical-align:middle;
+	cursor:pointer;
+	background-color:white;
+}
+#gridwrapper TD.solid {background-color:black}
+#gridwrapper TD.start {background-color:green}
+#gridwrapper TD.end {background-color:red}
+#gridwrapper TD.path {background-color:#88F}
+div.banner {border:1px solid #446;background-color:#EEF;padding:4px;margin-bottom:5px;margin-top:5px}
+div.dobanner {border:1px solid #644;background-color:#FEE;padding:4px;margin-bottom:5px;margin-top:5px}
+.dobanner button {width:150px;height:50px;vertical-align:middle;display:block;white-space:normal}
+.dobanner td {width:150px;}
+#gridwrapper TD {width:4px;height:6px;}
+</style>
+</head>
+<body onload="base.randomGrid($('txtWidth').value,$('txtHeight').value);">
+<div class="banner">
+	Grid Code: <input type="text" id="gridCode" size="80" />
+	<button type="button" onclick="$('gridCode').value=base.getGrid();">Get Grid Code</button>
+	<button type="button" onclick="base.putGrid();">Load Entered</button>
+</div>
+<div id="gridwrapper"></div>
+<div class="banner">
+Width: <input type="text" size="3" id="txtWidth" value="30" /> Height: <input type="text" size="3" id="txtHeight" value="30" />
+Random squares: <input type="text" size="3" id="txtNumSquares" value="400" /> <button type="button" onclick="base.randomGrid($('txtWidth').value,$('txtHeight').value);">Random Grid</button></div>
+
+<div class="dobanner">
+	Runs: <input type="text" id="txtNumRuns" size="5" value="1" /> <input type="checkbox" id="chkMakeNew" checked="checked" /> <label for="chkMakeNew">Generate new map first</label><br /><br />
+	Last Pathfinding Method: <span id="lblMessage"></span><br /><br />
+	<table><tr>
+		<td id="run1"><button type="button" onclick="ClearCounters(1);RunBestFirst($('txtNumRuns').value);">Best First</button>Avg: <span>0</span><br />Runs: <span></span></td>
+		<td id="run2"><button type="button" onclick="ClearCounters(2);RunAStar($('txtNumRuns').value,2,'Manhattan');">A* Manhattan</button>Avg: <span>0</span><br />Runs: <span></span></td>
+		<td id="run3"><button type="button" onclick="ClearCounters(3);RunAStar($('txtNumRuns').value,3,'Euclidean');">A* Diagonal/<br />Euclidean</button>Avg: <span>0</span><br />Runs: <span></span></td>
+		<td id="run4"><button type="button" onclick="ClearCounters(4);RunAStar($('txtNumRuns').value,4,'EuclideanFree');">A* Diagonal Free/<br />Euclidean Free</button>Avg: <span>0</span><br />Runs: <span></span></td>
+	</tr></table>
+</div>
+</body>
+</html>
